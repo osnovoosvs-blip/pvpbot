@@ -1,0 +1,43 @@
+name: build
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find project
+        id: p
+        run: |
+          if [ -f build.gradle ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          else
+            zipfile=$(ls -1 *.zip | head -n1)
+            mkdir proj
+            unzip -q "$zipfile" -d proj
+            gradle_file=$(find proj -name build.gradle | head -n1)
+            echo "dir=$(dirname "$gradle_file")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.12
+
+      - name: Build
+        working-directory: ${{ steps.p.outputs.dir }}
+        run: gradle build --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pvpbot-mod
+          path: |
+            ${{ steps.p.outputs.dir }}/build/libs/*.jar
+            !${{ steps.p.outputs.dir }}/build/libs/*-sources.jar
